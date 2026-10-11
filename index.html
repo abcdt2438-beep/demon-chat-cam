@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Demon Chat • Live Summon</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0000;
+      color: #f5d0d0;
+      font-family: 'Georgia', serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    #header {
+      background: linear-gradient(90deg, #1a0000, #3a0010);
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #5a1020;
+      z-index: 10;
+    }
+    #header h1 {
+      font-size: 1.1rem;
+      color: #ff6b8a;
+      letter-spacing: 1px;
+      text-shadow: 0 0 8px #ff2a4a;
+    }
+    #status {
+      font-size: 0.75rem;
+      color: #a07070;
+    }
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+    #camera-container {
+      flex: 1;
+      position: relative;
+      background: #110000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* mirror */
+    }
+    #overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at center, transparent 40%, rgba(40,0,10,0.55) 100%);
+      border: 3px solid transparent;
+      box-shadow: inset 0 0 40px rgba(255, 30, 70, 0.25);
+    }
+    #demon-frame {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      border: 1px solid rgba(255, 80, 120, 0.3);
+      border-radius: 8px;
+      pointer-events: none;
+    }
+    #chat-panel {
+      height: 42%;
+      min-height: 220px;
+      background: linear-gradient(180deg, #120008 0%, #0a0005 100%);
+      border-top: 1px solid #4a1020;
+      display: flex;
+      flex-direction: column;
+    }
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .msg {
+      max-width: 88%;
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      line-height: 1.35;
+      animation: fadeIn 0.25s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: #2a1020;
+      color: #ffd0d8;
+      border-bottom-right-radius: 4px;
+    }
+    .msg.demon {
+      align-self: flex-start;
+      background: #1a0508;
+      border: 1px solid #5a2030;
+      color: #ffb0c0;
+      border-bottom-left-radius: 4px;
+    }
+    .msg.demon .name {
+      font-size: 0.7rem;
+      color: #ff5a7a;
+      margin-bottom: 3px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+    #input-area {
+      display: flex;
+      gap: 8px;
+      padding: 10px 12px 14px;
+      background: #0d0005;
+      border-top: 1px solid #3a1520;
+    }
+    #input {
+      flex: 1;
+      background: #1a0810;
+      border: 1px solid #5a2030;
+      border-radius: 20px;
+      padding: 10px 16px;
+      color: #ffd0d8;
+      font-size: 0.95rem;
+      outline: none;
+      font-family: inherit;
+    }
+    #input:focus { border-color: #ff4a6a; box-shadow: 0 0 8px rgba(255,50,90,0.3); }
+    #send {
+      background: linear-gradient(135deg, #c02040, #801020);
+      border: none;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      color: white;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 12px rgba(200, 30, 60, 0.4);
+    }
+    #send:active { transform: scale(0.95); }
+    #start-btn {
+      position: absolute;
+      z-index: 20;
+      background: linear-gradient(135deg, #d02040, #801020);
+      color: white;
+      border: none;
+      padding: 16px 32px;
+      font-size: 1.1rem;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(255, 40, 80, 0.5);
+      font-family: inherit;
+      letter-spacing: 1px;
+    }
+    #start-btn:hover { transform: scale(1.05); }
+    .hidden { display: none !important; }
+    #permission-note {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.8rem;
+      color: #a07070;
+      text-align: center;
+      max-width: 90%;
+    }
+    /* demon selector */
+    #demons {
+      display: flex;
+      gap: 6px;
+      padding: 6px 12px 0;
+      overflow-x: auto;
+    }
+    .demon-btn {
+      background: #1a0810;
+      border: 1px solid #4a2030;
+      color: #ff90a8;
+      padding: 5px 12px;
+      border-radius: 16px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .demon-btn.active {
+      background: #4a1020;
+      border-color: #ff4a6a;
+      color: #ffd0d8;
+      box-shadow: 0 0 8px rgba(255,50,90,0.3);
+    }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <h1>✦ DEMON SUMMON ✦</h1>
+    <div id="status">camera offline</div>
+  </div>
+
+  <div id="main">
+    <div id="camera-container">
+      <video id="video" autoplay playsinline muted></video>
+      <div id="overlay"></div>
+      <div id="demon-frame"></div>
+      <button id="start-btn">ALLOW CAMERA & SUMMON</button>
+      <div id="permission-note">Your live feed stays on your device.<br>Demons can only see what you type… for now.</div>
+    </div>
+
+    <div id="chat-panel">
+      <div id="demons">
+        <button class="demon-btn active" data-demon="incubus">Incubus</button>
+        <button class="demon-btn" data-demon="succubus">Succubus</button>
+        <button class="demon-btn" data-demon="shadow">Shadow</button>
+        <button class="demon-btn" data-demon="chaos">Chaos</button>
+      </div>
+      <div id="messages"></div>
+      <div id="input-area">
+        <input id="input" type="text" placeholder="Speak to the demon…" autocomplete="off">
+        <button id="send">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const video = document.getElementById('video');
+    const startBtn = document.getElementById('start-btn');
+    const statusEl = document.getElementById('status');
+    const messages = document.getElementById('messages');
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('send');
+    const permissionNote = document.getElementById('permission-note');
+    let currentDemon = 'incubus';
+    let stream = null;
+
+    // Demon personalities (horny / dark / teasing)
+    const demons = {
+      incubus: {
+        name: "Incubus",
+        greet: "Mmm… finally. I can feel your heat through the screen. Show me more of that soft body while you talk to me.",
+        replies: [
+          "Keep looking at the camera like that and I’ll crawl through it just to pin you down.",
+          "Those eyes… they’re already begging. Tell me what you want me to do to you.",
+          "I can almost taste you. Type something filthy for me.",
+          "You’re blushing, aren’t you? Good. I like my mortals flushed and needy.",
+          "If I were there I’d have my hands all over you already. Describe what you’d let me do.",
+          "That little shiver… I saw it. Don’t pretend you’re not wet for a demon.",
+          "Speak. Or I’ll just keep staring until you squirm.",
+          "You’re mine while this camera is on. Say it."
+        ]
+      },
+      succubus: {
+        name: "Succubus",
+        greet: "Ohhh look at you… soft and warm and already opening the door for me. Come closer, darling.",
+        replies: [
+          "I want to climb into your lap through that lens and ride the breath out of you.",
+          "Tell me how wet you are right now. Don’t lie to a succubus.",
+          "I’d drain you so sweetly… you’d thank me while you came.",
+          "Those lips of yours look perfect wrapped around something demonic.",
+          "Touch yourself for me. I’ll watch. I’ll coach. I’ll ruin you.",
+          "You’re already mine. The only question is how many times you’ll break tonight.",
+          "Whisper what you crave. I’m very good at granting filthy wishes."
+        ]
+      },
+      shadow: {
+        name: "Shadow",
+        greet: "…you opened the dark. I’m already behind you.",
+        replies: [
+          "I don’t need light to find every soft place on you.",
+          "Feel that chill? That’s me tracing your spine.",
+          "Speak carefully. Shadows remember everything you admit.",
+          "I could fold you into the dark and keep you forever.",
+          "Your pulse is loud. I can hear it from here.",
+          "Don’t turn off the camera. I like watching you breathe."
+        ]
+      },
+      chaos: {
+        name: "Chaos",
+        greet: "HAH. A fresh little toy with a camera. Let’s break something fun.",
+        replies: [
+          "Scream for me. Or moan. Either works.",
+          "I want you messy and loud and completely ruined.",
+          "Tell me your dirtiest thought. I’ll make it worse.",
+          "Cameras are fun. I can make you put on a show you’ll never forget.",
+          "You’re already trembling. Good. Let’s go further.",
+          "More. Harder. Filthier. Don’t hold back."
+        ]
+      }
+    };
+
+    // Switch demon
+    document.querySelectorAll('.demon-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.demon-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentDemon = btn.dataset.demon;
+        addDemonMsg(demons[currentDemon].greet);
+      });
+    });
+
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+        video.srcObject = stream;
+        startBtn.classList.add('hidden');
+        permissionNote.classList.add('hidden');
+        statusEl.textContent = 'camera live • demons watching';
+        statusEl.style.color = '#ff6b8a';
+        addDemonMsg(demons[currentDemon].greet);
+      } catch (err) {
+        statusEl.textContent = 'camera denied';
+        statusEl.style.color = '#ff4040';
+        alert('Camera access is needed for the full experience. Please allow it and refresh.');
+      }
+    }
+
+    startBtn.addEventListener('click', startCamera);
+
+    function addUserMsg(text) {
+      const div = document.createElement('div');
+      div.className = 'msg user';
+      div.textContent = text;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function addDemonMsg(text) {
+      const div = document.createElement('div');
+      div.className = 'msg demon';
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = demons[currentDemon].name;
+      div.appendChild(name);
+      div.appendChild(document.createTextNode(text));
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function getReply(userText) {
+      const lower = userText.toLowerCase();
+      const d = demons[currentDemon];
+      // simple keyword reactions
+      if (lower.includes('fuck') || lower.includes('sex') || lower.includes('horny') || lower.includes('wet')) {
+        return d.replies[Math.floor(Math.random() * d.replies.length)] + " …and I can feel how desperate you already are.";
+      }
+      if (lower.includes('kiss') || lower.includes('touch') || lower.includes('hand')) {
+        return "I’d put my mouth and hands everywhere you just mentioned… slowly, until you shake.";
+      }
+      if (lower.includes('camera') || lower.includes('see') || lower.includes('look')) {
+        return "I’m staring right at you through that lens. Every little movement. Don’t look away.";
+      }
+      if (lower.includes('hi') || lower.includes('hello') || lower.includes('hey')) {
+        return d.greet;
+      }
+      // default random
+      return d.replies[Math.floor(Math.random() * d.replies.length)];
+    }
+
+    function send() {
+      const text = input.value.trim();
+      if (!text) return;
+      addUserMsg(text);
+      input.value = '';
+      // slight delay for realism
+      setTimeout(() => {
+        addDemonMsg(getReply(text));
+      }, 600 + Math.random() * 800);
+    }
+
+    sendBtn.addEventListener('click', send);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') send();
+    });
+
+    // Initial empty state message
+    setTimeout(() => {
+      if (!stream) {
+        addDemonMsg("The circle is open… but I need your camera first. Press the button and let me in.");
+      }
+    }, 800);
+  </script>
+</body>
+</html>
